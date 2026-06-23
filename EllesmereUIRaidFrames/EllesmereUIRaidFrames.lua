@@ -2373,7 +2373,7 @@ end
 
 -------------------------------------------------------------------------------
 --  Enable right-click camera movement over raid/party frames
---  A global mouse watcher: when the right button is pressed over 
+--  A global mouse watcher: when the right button is pressed over
 --  one of our unit buttons and then dragged past a small threshold,
 --  it starts mouselook (camera turn). It never touches the secure
 --  buttons so it can't taint or interfere with click-casting.
@@ -2445,6 +2445,31 @@ do
         end
     end
 end
+
+-- MODIFICATION
+-- Generic class pip creation. key = the table key on d (e.g. "_holyPips", "_comboPips")
+function ns._CreateClassPips(button, d, key, color)
+    local PIP_HEIGHT = 4
+    local PIP_GAP = 2
+    local MAX_PIPS = 5
+    d[key] = {}
+    d[key .. "_gap"] = PIP_GAP
+    d[key .. "_height"] = PIP_HEIGHT
+    d[key .. "_color"] = color
+    for j = 1, MAX_PIPS do
+        local pip = CreateFrame("StatusBar", nil, button)
+        pip:SetFrameLevel(button:GetFrameLevel() + 6)
+        pip:SetStatusBarTexture(ResolveHealthTexture())
+        pip:GetStatusBarTexture():SetHorizTile(false)
+        pip:SetStatusBarColor(color.r, color.g, color.b)
+        pip:SetMinMaxValues(0, 1)
+        pip:SetValue(1)
+        if PP then PP.DisablePixelSnap(pip) end
+        pip:Hide()
+        d[key][j] = pip
+    end
+end
+-- /MODIFICATION
 
 -------------------------------------------------------------------------------
 --  Style a single button (called once per button at creation time)
@@ -3468,6 +3493,12 @@ local function StyleButton(button)
             ns.BM_AnchorIndicators(d, health, s)
         end
     end
+
+    -- MODIFICATION
+    for _, cfg in pairs(ns._CLASS_PIP_CONFIG) do
+        ns._CreateClassPips(button, d, cfg.key, cfg.color)
+    end
+    -- /MODIFICATION
 end
 
 -------------------------------------------------------------------------------
@@ -8017,6 +8048,49 @@ ns._auraDrainFrame:SetScript("OnUpdate", function(self)
     if next(ns._auraDirty) == nil then ns._auraDirtyN = 0; self:Hide() end
 end)
 
+-- MODIFICATION
+-- Generic class pip update. cfg = entry from ns._CLASS_PIP_CONFIG
+function ns._UpdateClassPips(btn, cfg)
+    local d = GetFFD(btn)
+    local key = cfg.key
+
+    -- Hide all other pip sets
+    for _, pipCfg in pairs(ns._CLASS_PIP_CONFIG) do
+        local otherKey = pipCfg.key
+        if otherKey ~= key and d[otherKey] then
+            for j = 1, #d[otherKey] do d[otherKey][j]:Hide() end
+        end
+    end
+
+    local pips = d[key]
+    if not pips then return end
+
+    local current = UnitPower("player", cfg.powerType)
+    local maxPower = math.max(UnitPowerMax("player", cfg.powerType), 1)
+
+    if current == 0 then
+        for j = 1, #pips do pips[j]:Hide() end
+        return
+    end
+
+    local frameWidth = btn:GetWidth()
+    local gap = d[key .. "_gap"] or 2
+    local pipH = d[key .. "_height"] or 4
+    local pipWidth = (frameWidth - (maxPower - 1) * gap) / maxPower
+    local bottomOffset = ((d.power and d.power:IsShown()) and d.power:GetHeight() or 0) - 3
+
+    for j = 1, maxPower do
+        local pip = pips[j]
+        if not pip then break end
+        pip:SetWidth(pipWidth)
+        pip:SetHeight(pipH)
+        pip:ClearAllPoints()
+        pip:SetPoint("BOTTOMLEFT", d.health, "BOTTOMLEFT", (j - 1) * (pipWidth + gap), bottomOffset)
+        if j <= current then pip:Show() else pip:Hide() end
+    end
+end
+-- /MODIFICATION
+
 -------------------------------------------------------------------------------
 --  Event handlers
 -------------------------------------------------------------------------------
@@ -8172,7 +8246,7 @@ local function OnEvent(self, event, arg1, ...)
             -- Roster changed (out of combat). We never force UpdateVisibility's
             -- full 40-button rebuild here. The per-button OnAttributeChanged hook
             -- already fully repainted (incl. auras) every button whose unit was
-            -- (re)assigned, so a blanket aura re-scan x40 is redundant. React 
+            -- (re)assigned, so a blanket aura re-scan x40 is redundant. React
             -- per-unit instead of rebuilding all. We still UpdateButton each visible
             -- button (no aura rescan) so leader/role/marker/health for
             -- UNCHANGED-token units stay correct -- e.g. a new leader after the
@@ -8242,6 +8316,17 @@ local function OnEvent(self, event, arg1, ...)
             d.power:SetStatusBarColor(pr, pg, pb, 1)
             ns.ProfEnd("PowerUpdate", t0)
         end
+        -- MODIFICATION
+        -- Class power pips: only for player, only when class is Paladin
+        if arg1 == "player" then
+            local _, classToken = UnitClass("player")
+            local cfg = ns._CLASS_PIP_CONFIG[classToken]
+            if cfg then
+                local playerBtn = unitToButton["player"] or ns._partyUnitToButton["player"]
+                if playerBtn then ns._UpdateClassPips(playerBtn, cfg) end
+            end
+        end
+        -- /MODIFICATION
     elseif event == "UNIT_AURA" then
         local btn = unitToButton[arg1] or ns._partyUnitToButton[arg1]
         if btn then
@@ -9447,6 +9532,25 @@ ns._PV_CLASS_POWER = {
     PRIEST = "MANA", DEATHKNIGHT = "RUNIC_POWER", SHAMAN = "MANA", MAGE = "MANA",
     WARLOCK = "MANA", MONK = "ENERGY", DRUID = "MANA", DEMONHUNTER = "FURY", EVOKER = "MANA",
 }
+-- MODIFICATION
+ns._CLASS_PIP_CONFIG = {
+    PALADIN = {
+        key = "_holyPips",
+        powerType = Enum.PowerType.HolyPower,
+        color = {r = 1, g = 0.82, b = 0},
+    },
+    ROGUE = {
+        key = "_comboPips",
+        powerType = Enum.PowerType.ComboPoints,
+        color = {r = 1, g = 0.6, b = 0},
+    },
+    DRUID = {
+        key = "_comboPips",
+        powerType = Enum.PowerType.ComboPoints,
+        color = {r = 1, g = 0.6, b = 0},
+    },
+}
+-- /MODIFICATION
 ns._PV_DEBUFF_ICONS = { 135813, 136139, 132090, 136197, 135849, 136188 }
 ns._pvActiveAuras = {}
 
@@ -9518,7 +9622,7 @@ end
 -- Position a preview aura icon on a frame (reuses anchor logic)
 local function PvAuraAnchor(icon, f, auraType, slot, totalShown)
     local s2 = PvSettings()
-	
+
     -- Debuffs use the shared grid layout (same DebuffGridPoint helper as the live
     -- frames) so the preview matches exactly -- including row wrapping and CENTER
     -- per-row centering. `slot` is the 0-based index among visible icons.
@@ -9874,7 +9978,7 @@ local function PvAuraTick()
             pulseInfo.active = true
             pulseInfo.expTime = now + dur
         end
-		
+
         -- Row-wrap showcase: when wrapping is enabled, fill the player frame
         -- (index 1) up to debuffCap so the full multi-row layout is actually
         -- visible -- the ambient pulse/random spawns only put 1-2 per frame,
@@ -13776,7 +13880,14 @@ function ERF:OnEnable()
             if wantPower then
                 tracker:RegisterUnitEvent("UNIT_POWER_UPDATE", unit)
             else
-                tracker:UnregisterEvent("UNIT_POWER_UPDATE")
+                -- MODIFICATION
+                -- Always keep player registered for holy power pips
+                if unit == "player" then
+                    tracker:RegisterUnitEvent("UNIT_POWER_UPDATE", unit)
+                else
+                    tracker:UnregisterEvent("UNIT_POWER_UPDATE")
+                end
+                -- /MODIFICATION
             end
         end
     end
