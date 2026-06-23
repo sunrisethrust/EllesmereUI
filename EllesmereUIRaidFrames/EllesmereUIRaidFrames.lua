@@ -2373,7 +2373,7 @@ end
 
 -------------------------------------------------------------------------------
 --  Enable right-click camera movement over raid/party frames
---  A global mouse watcher: when the right button is pressed over 
+--  A global mouse watcher: when the right button is pressed over
 --  one of our unit buttons and then dragged past a small threshold,
 --  it starts mouselook (camera turn). It never touches the secure
 --  buttons so it can't taint or interfere with click-casting.
@@ -3578,6 +3578,23 @@ local function UpdateButton(button)
     -- Background (+ dead/offline status tint). Centralized in ns._ApplyHealthBg
     -- so the lightweight UNIT_HEALTH path stays in lockstep on death/resurrect.
     ns._ApplyHealthBg(d, health, s, unit)
+
+    -- MODIFICATION
+    -- Class color background
+    if d.classBg then
+        local _, classToken = UnitClass(unit)
+        if classToken and not issecretvalue(classToken) then
+            local cc = EllesmereUI.GetClassColor(classToken)
+            if cc then
+                d.classBg:SetColorTexture(cc.r, cc.g, cc.b, 0.35)  -- adjust opacity to taste
+            else
+                d.classBg:SetColorTexture(0.5, 0.5, 0.5, 0.35)
+            end
+        else
+            d.classBg:SetColorTexture(0.5, 0.5, 0.5, 0)
+        end
+    end
+    -- /MODIFICATION
 
     -- Power (filtered by role + hide if unit has no power)
     local power = d.power
@@ -8172,7 +8189,7 @@ local function OnEvent(self, event, arg1, ...)
             -- Roster changed (out of combat). We never force UpdateVisibility's
             -- full 40-button rebuild here. The per-button OnAttributeChanged hook
             -- already fully repainted (incl. auras) every button whose unit was
-            -- (re)assigned, so a blanket aura re-scan x40 is redundant. React 
+            -- (re)assigned, so a blanket aura re-scan x40 is redundant. React
             -- per-unit instead of rebuilding all. We still UpdateButton each visible
             -- button (no aura rescan) so leader/role/marker/health for
             -- UNCHANGED-token units stay correct -- e.g. a new leader after the
@@ -9518,7 +9535,7 @@ end
 -- Position a preview aura icon on a frame (reuses anchor logic)
 local function PvAuraAnchor(icon, f, auraType, slot, totalShown)
     local s2 = PvSettings()
-	
+
     -- Debuffs use the shared grid layout (same DebuffGridPoint helper as the live
     -- frames) so the preview matches exactly -- including row wrapping and CENTER
     -- per-row centering. `slot` is the 0-based index among visible icons.
@@ -9874,7 +9891,7 @@ local function PvAuraTick()
             pulseInfo.active = true
             pulseInfo.expTime = now + dur
         end
-		
+
         -- Row-wrap showcase: when wrapping is enabled, fill the player frame
         -- (index 1) up to debuffCap so the full multi-row layout is actually
         -- visible -- the ambient pulse/random spawns only put 1-2 per frame,
