@@ -3982,6 +3982,23 @@ local function UpdateButton(button)
     -- so the lightweight UNIT_HEALTH path stays in lockstep on death/resurrect.
     ns._ApplyHealthBg(d, health, s, unit)
 
+    -- MODIFICATION
+    -- Class color background
+    if d.classBg then
+        local _, classToken = UnitClass(unit)
+        if classToken and not issecretvalue(classToken) then
+            local cc = EllesmereUI.GetClassColor(classToken)
+            if cc then
+                d.classBg:SetColorTexture(cc.r, cc.g, cc.b, 0.35)  -- adjust opacity to taste
+            else
+                d.classBg:SetColorTexture(0.5, 0.5, 0.5, 0.35)
+            end
+        else
+            d.classBg:SetColorTexture(0.5, 0.5, 0.5, 0)
+        end
+    end
+    -- /MODIFICATION
+
     -- Power (filtered by role + hide if unit has no power)
     local power = d.power
     if power then
