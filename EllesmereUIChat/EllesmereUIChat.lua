@@ -2333,7 +2333,12 @@ local function SkinChatFrame(cf)
     cf:SetFont(GetFont(), GetFrameFontSize(cfId), GetOutlineFlag())
     if cf.SetShadowOffset then cf:SetShadowOffset(1, -1) end
     if cf.SetShadowColor then cf:SetShadowColor(0, 0, 0, 0.8) end
-    cf:SetFading(false)
+    -- MODIFICATIONS
+    -- Enable Blizzard per-message fading
+    cf:SetFading(true)
+    cf:SetTimeVisible(10)
+    cf:SetFadeDuration(3)
+    -- /MODIFICATION
 
     -- 3. Hyperlink handlers (per-frame, on our bg frame -- not on Blizzard's cf)
     --    OnHyperlinkEnter/Leave for tooltip, OnHyperlinkClick for item toggle
